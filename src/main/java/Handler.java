@@ -63,8 +63,8 @@ public class Handler {
         for (Map<String, String> input : request.getOutputs()) {
             String fileName = input.get("name");
             String filePath = FOLDER_PATH + fileName;
-            //String key = request.getOptions().get("prefix") + "/" + fileName;
-            String key = "test" + "/" + fileName;
+            String key = request.getOptions().get("prefix") + "/" + fileName;
+            //String key = "test" + "/" + fileName;
             logger.log("Uploading " + request.getOptions().get(BUCKET_KEY) + "/" + key);
             S3Utils.putObject(request.getOptions().get(BUCKET_KEY), key, filePath);
         }
