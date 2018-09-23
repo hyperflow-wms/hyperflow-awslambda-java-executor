@@ -19,7 +19,6 @@ package:
 functions:
   executor:
     handler: Handler::handleRequest
-
     events:
       - http:
           path: executor

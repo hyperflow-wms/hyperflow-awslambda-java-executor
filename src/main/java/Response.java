@@ -2,7 +2,6 @@ public class Response {
 
     private int statusCode;
     private String message;
-    private String args;
 
     public int getStatusCode() {
         return statusCode;
@@ -20,11 +19,11 @@ public class Response {
         this.message = message;
     }
 
-    public String getArgs() {
-        return args;
-    }
-
-    public void setArgs(String args) {
-        this.args = args;
+    @Override
+    public String toString() {
+        return "Response{" +
+                "statusCode=" + statusCode +
+                ", message='" + message + '\'' +
+                '}';
     }
 }

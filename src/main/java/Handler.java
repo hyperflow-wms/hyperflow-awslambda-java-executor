@@ -2,6 +2,7 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.util.IOUtils;
+import com.google.gson.Gson;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -15,34 +16,37 @@ public class Handler {
     private static final String BUCKET_KEY = "bucket";
     private static final String PREFIX_KEY = "prefix";
 
-    public Response handleRequest(Request request, Context context) {
+    public Response handleRequest(Event event, Context context) {
 
         Instant instant1 = Instant.now();
         LambdaLogger logger = context.getLogger();
+        logger.log("body:       " + event.getBody());
+
+        Gson gson = new Gson();
+        Body body = gson.fromJson(event.getBody(), Body.class);
 
         try {
-            logger.log("executable: " + request.getExecutable());
-            logger.log("args:       " + request.getArgs());
-            logger.log("inputs:     " + request.getInputs());
-            logger.log("outputs:    " + request.getOutputs());
-            logger.log("bucket:     " + request.getOptions().get(BUCKET_KEY));
-            logger.log("prefix:     " + request.getOptions().get(PREFIX_KEY));
+            logger.log("executable: " + body.getExecutable());
+            logger.log("args:       " + body.getArgs());
+            logger.log("inputs:     " + body.getInputs());
+            logger.log("outputs:    " + body.getOutputs());
+            logger.log("bucket:     " + body.getOptions().get(BUCKET_KEY));
+            logger.log("prefix:     " + body.getOptions().get(PREFIX_KEY));
 
-            downloadData(request, logger);
-            downloadExecutable(request, logger);
-            execute(request.getExecutable(), String.join(" ", request.getArgs()), logger);
-            uploadData(request, logger);
+            downloadData(body, logger);
+            downloadExecutable(body, logger);
+            execute(body.getExecutable(), String.join(" ", body.getArgs()), logger);
+            uploadData(body, logger);
         } catch (Exception e) {
-            return handleException(e, request);
+            return handleException(e, body);
         }
         Response response = new Response();
         response.setStatusCode(HttpURLConnection.HTTP_OK);
-        response.setMessage("Execution of " + request.getExecutable() + " successful, duration: " + Duration.between(instant1, Instant.now()).getSeconds() + " seconds");
-        response.setArgs(request.getArgs().toString());
+        response.setMessage("Execution of " + body.getExecutable() + " successful, duration: " + Duration.between(instant1, Instant.now()).getSeconds() + " seconds");
         return response;
     }
 
-    private void downloadData(Request request, LambdaLogger logger) throws IOException {
+    private void downloadData(Body request, LambdaLogger logger) throws IOException {
         for (Map<String, Object> input : request.getInputs()) {
             String fileName = input.get("name").toString();
             String key = request.getOptions().get(PREFIX_KEY) + "/" + fileName;
@@ -67,17 +71,17 @@ public class Handler {
         logger.log("Stderr: " + errorMsg);
     }
 
-    private void uploadData(Request request, LambdaLogger logger) {
-        for (Map<String, String> input : request.getOutputs()) {
+    private void uploadData(Body body, LambdaLogger logger) {
+        for (Map<String, String> input : body.getOutputs()) {
             String fileName = input.get("name");
             String filePath = FOLDER_PATH + fileName;
-            String key = request.getOptions().get(PREFIX_KEY) + "/" + fileName;
-            logger.log("Uploading " + request.getOptions().get(BUCKET_KEY) + "/" + key);
-            S3Utils.putObject(request.getOptions().get(BUCKET_KEY), key, filePath);
+            String key = body.getOptions().get(PREFIX_KEY) + "/" + fileName;
+            logger.log("Uploading " + body.getOptions().get(BUCKET_KEY) + "/" + key);
+            S3Utils.putObject(body.getOptions().get(BUCKET_KEY), key, filePath);
         }
     }
 
-    private Response handleException(Exception e, Request request) {
+    private Response handleException(Exception e, Body body) {
         Throwable cause;
         if (e.getCause() != null) {
             cause = e.getCause();
@@ -89,16 +93,15 @@ public class Handler {
         }
         Response response = new Response();
         response.setStatusCode(HttpURLConnection.HTTP_INTERNAL_ERROR);
-        response.setMessage("Execution of " + request.getExecutable() + " failed, cause: " + cause.getMessage());
-        response.setArgs(request.getArgs().toString());
+        response.setMessage("Execution of " + body.getExecutable() + " failed, cause: " + cause.getMessage());
         return response;
     }
 
-    private void downloadExecutable(Request request, LambdaLogger logger) throws IOException {
-        logger.log("Downloading executable" + request.getExecutable());
-        String key = request.getOptions().get(PREFIX_KEY) + "/" + request.getExecutable();
-        S3Object s3Object = S3Utils.getObject(request.getOptions().get(BUCKET_KEY), key);
-        S3Utils.saveToFile(s3Object, FOLDER_PATH + request.getExecutable());
+    private void downloadExecutable(Body body, LambdaLogger logger) throws IOException {
+        logger.log("Downloading executable" + body.getExecutable());
+        String key = body.getOptions().get(PREFIX_KEY) + "/" + body.getExecutable();
+        S3Object s3Object = S3Utils.getObject(body.getOptions().get(BUCKET_KEY), key);
+        S3Utils.saveToFile(s3Object, FOLDER_PATH + body.getExecutable());
     }
 
 }
