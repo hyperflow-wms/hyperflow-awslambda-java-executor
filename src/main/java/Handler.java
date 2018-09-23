@@ -29,6 +29,7 @@ public class Handler {
             logger.log("prefix:     " + request.getOptions().get(PREFIX_KEY));
 
             downloadData(request, logger);
+            downloadExecutable(request, logger);
             execute(request.getExecutable(), String.join(" ", request.getArgs()), logger);
             uploadData(request, logger);
         } catch (Exception e) {
@@ -91,6 +92,13 @@ public class Handler {
         response.setMessage("Execution of " + request.getExecutable() + " failed, cause: " + cause.getMessage());
         response.setArgs(request.getArgs().toString());
         return response;
+    }
+
+    private void downloadExecutable(Request request, LambdaLogger logger) throws IOException {
+        logger.log("Downloading executable" + request.getExecutable());
+        String key = request.getOptions().get(PREFIX_KEY) + "/" + request.getExecutable();
+        S3Object s3Object = S3Utils.getObject(request.getOptions().get(BUCKET_KEY), key);
+        S3Utils.saveToFile(s3Object, FOLDER_PATH + request.getExecutable());
     }
 
 }
