@@ -1,7 +1,9 @@
+package payloads;
+
 import java.util.List;
 import java.util.Map;
 
-public class Body {
+public class Request {
 
     private String executable;
     private List<String> args;

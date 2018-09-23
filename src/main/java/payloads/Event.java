@@ -1,3 +1,5 @@
+package payloads;
+
 public class Event {
 
     private String body;
