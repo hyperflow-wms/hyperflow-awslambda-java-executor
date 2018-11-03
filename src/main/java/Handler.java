@@ -7,15 +7,18 @@ import payloads.Event;
 import payloads.Request;
 import payloads.Response;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class Handler {
 
-    private static final String FOLDER_PATH = "/tmp/";
+    private static final String TMP_PATH = "/tmp/";
     private static final String BUCKET_KEY = "bucket";
     private static final String PREFIX_KEY = "prefix";
 
@@ -38,7 +41,7 @@ public class Handler {
 
             downloadData(request, logger);
             downloadExecutable(request, logger);
-            execute(request.getExecutable(), String.join(" ", request.getArgs()), logger);
+            execute(createCommand(request), logger);
             uploadData(request, logger);
         } catch (Exception e) {
             return handleException(e, request);
@@ -53,19 +56,35 @@ public class Handler {
         for (Map<String, Object> input : request.getInputs()) {
             String fileName = input.get("name").toString();
             String key = request.getOptions().get(PREFIX_KEY) + "/" + fileName;
-            logger.log("Downloading " + request.getOptions().get(BUCKET_KEY) + "/" + key);
+            logger.log("Downloading file: " + request.getOptions().get(BUCKET_KEY) + "/" + key);
             S3Object s3Object = S3Utils.getObject(request.getOptions().get(BUCKET_KEY), key);
-            S3Utils.saveToFile(s3Object, FOLDER_PATH + fileName);
+            S3Utils.saveToFile(s3Object, TMP_PATH + fileName);
         }
     }
 
-    private void execute(String executable, String args, LambdaLogger logger) throws Exception {
-        logger.log("Executing " + executable);
+    private void downloadExecutable(Request request, LambdaLogger logger) throws IOException {
+        logger.log("Downloading executable file: " + request.getExecutable());
+        String key = request.getOptions().get(PREFIX_KEY) + "/" + request.getExecutable();
+        S3Object s3Object = S3Utils.getObject(request.getOptions().get(BUCKET_KEY), key);
+        S3Utils.saveToFile(s3Object, TMP_PATH + request.getExecutable());
+    }
 
-        Process chmod = Runtime.getRuntime().exec("chmod -R 755 " + FOLDER_PATH);
+    private List<String> createCommand(Request request) {
+        List<String> command = new ArrayList<>();
+        command.add(TMP_PATH + request.getExecutable());
+        command.addAll(request.getArgs());
+        return command;
+    }
+
+    private void execute(List<String> command, LambdaLogger logger) throws Exception {
+        logger.log("Executing: " + String.join(" ", command));
+
+        Process chmod = Runtime.getRuntime().exec("chmod -R 777 " + TMP_PATH);
         chmod.waitFor();
-        Process process = Runtime.getRuntime().exec(FOLDER_PATH + executable + " " + args);
-        process.waitFor();
+
+        ProcessBuilder processBuilder = new ProcessBuilder(command);
+        processBuilder.directory(new File(TMP_PATH));
+        Process process = processBuilder.start();
 
         String outputMsg = IOUtils.toString(process.getInputStream());
         String errorMsg = IOUtils.toString(process.getErrorStream());
@@ -77,9 +96,9 @@ public class Handler {
     private void uploadData(Request request, LambdaLogger logger) {
         for (Map<String, String> input : request.getOutputs()) {
             String fileName = input.get("name");
-            String filePath = FOLDER_PATH + fileName;
+            String filePath = TMP_PATH + fileName;
             String key = request.getOptions().get(PREFIX_KEY) + "/" + fileName;
-            logger.log("Uploading " + request.getOptions().get(BUCKET_KEY) + "/" + key);
+            logger.log("Uploading to " + request.getOptions().get(BUCKET_KEY) + "/" + key + " from " + filePath);
             S3Utils.putObject(request.getOptions().get(BUCKET_KEY), key, filePath);
         }
     }
@@ -99,12 +118,4 @@ public class Handler {
         response.setBody("Execution of " + request.getExecutable() + " failed, cause: " + cause.getMessage());
         return response;
     }
-
-    private void downloadExecutable(Request request, LambdaLogger logger) throws IOException {
-        logger.log("Downloading executable" + request.getExecutable());
-        String key = request.getOptions().get(PREFIX_KEY) + "/" + request.getExecutable();
-        S3Object s3Object = S3Utils.getObject(request.getOptions().get(BUCKET_KEY), key);
-        S3Utils.saveToFile(s3Object, FOLDER_PATH + request.getExecutable());
-    }
-
 }
