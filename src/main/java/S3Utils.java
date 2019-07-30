@@ -12,15 +12,15 @@ import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class S3Utils {
+class S3Utils {
 
     private static final Logger logger = Logger.getGlobal();
-    private static final AmazonS3 S3 = AmazonS3ClientBuilder.defaultClient();
+    static final AmazonS3 S3 = AmazonS3ClientBuilder.defaultClient();
 
     private S3Utils() {
     }
 
-    public static S3Object getObject(String bucketName, String key) {
+    static S3Object getObject(String bucketName, String key) {
         S3Object s3Object;
         try {
             s3Object = S3.getObject(bucketName, key);
@@ -31,7 +31,7 @@ public class S3Utils {
         return s3Object;
     }
 
-    public static void putObject(String bucketName, String key, String filePath) {
+    static void putObject(String bucketName, String key, String filePath) {
         File file = new File(filePath);
         try {
             S3.putObject(bucketName, key, file);
@@ -41,7 +41,7 @@ public class S3Utils {
         }
     }
 
-    public static void saveToFile(S3Object s3Object, String fileName) throws IOException {
+    static void saveToFile(S3Object s3Object, String fileName) throws IOException {
         try (InputStream in = s3Object.getObjectContent()) {
             Objects.requireNonNull(s3Object);
             Files.copy(in, Paths.get(fileName), StandardCopyOption.REPLACE_EXISTING);

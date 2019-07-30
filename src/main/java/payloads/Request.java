@@ -6,6 +6,7 @@ import java.util.Map;
 public class Request {
 
     private String executable;
+    private String logName;
     private List<String> args;
     private Map<String, String> env;
     private List<Map<String, Object>> inputs;
@@ -58,6 +59,14 @@ public class Request {
 
     public Map<String, String> getOptions() {
         return options;
-
     }
+
+    public void setLogName(String logName) {
+        this.logName = logName;
+    }
+
+    public String getLogName() {
+        return this.logName;
+    }
+
 }
